@@ -6,7 +6,11 @@
     "scripts":  {
                     "scrape":  "node scrape_northridge.js",
                     "test":  "echo \"No tests configured\"",
-                    "shopify_sync":  "node shopify_sync.js"
+                    "shopify_sync":  "node shopify_sync.js",
+                    "sync:dry":  "node shopify_sync.js --dry-run --max-items=25",
+                    "sync:real":  "node shopify_sync.js --real",
+                    "pipeline:dry":  "node scrape_northridge.js && node shopify_sync.js --dry-run --max-items=25",
+                    "pipeline:real":  "node scrape_northridge.js && node shopify_sync.js --real"
                 },
     "keywords":  [
 

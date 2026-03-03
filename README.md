@@ -1,114 +1,96 @@
 # Shift Auto & Offroad Shopify Sync
 
-This project does 2 things:
+This tool takes off-road parts data and syncs it into Shopify.
 
-1. Scrapes parts from Northridge4x4.
-2. Uploads those parts to your Shopify store as draft products.
+What it does:
+1. Scrapes part data from Northridge4x4.
+2. Pulls vehicle compatibility from `THIS PART FITS`.
+3. Creates/updates products in Shopify by SKU.
 
 For technical details, see [APP_REFERENCE.md](./APP_REFERENCE.md).
 
-## What It Does In Plain English
+## Fast Start (For Your Buddy)
 
-- Reads all Northridge part pages.
-- Pulls product info: title, brand, SKU, price, image, description.
-- Pulls vehicle compatibility from the `THIS PART FITS` section.
-- Sends products to Shopify:
-  - If SKU already exists: updates it.
-  - If SKU does not exist: creates it as a draft.
+### 1) Open in VS Code
 
-## One-Time Setup
+Open this folder in VS Code.
 
-### 1) Install Node packages
+### 2) One-time setup
+
+Copy `.env.example` to `.env` and fill in token/domain.
+
+Required values in `.env`:
+- `SHOPIFY_SHOP_DOMAIN` (must be `*.myshopify.com`)
+- `SHOPIFY_ACCESS_TOKEN` (`shpat_...`)
+
+For this store, domain should look like:
+- `shiftautoandoffroad.myshopify.com`
+
+### 3) Install dependencies
 
 ```powershell
 npm install
 ```
 
-### 2) Create Shopify custom app and token
+### 4) Run with one command
 
-In Shopify Admin, create a custom app and enable these Admin API scopes:
-- `read_products`
-- `write_products`
-- `write_inventory` (optional)
-
-Copy the Admin API token (`shpat_...`).
-
-Important:
-Use your **myshopify domain**, not the public website URL.
-
-- Correct format: `your-store.myshopify.com`
-- For your store, it should look like: `shiftautoandoffroad.myshopify.com`
-
-## Run It (Safe Workflow)
-
-### Step A: Scrape parts
-
+Dry run (safe test):
 ```powershell
-npm run scrape
+npm run pipeline:dry
 ```
 
-### Step B: Dry-run Shopify sync (no real changes)
-
+Real sync:
 ```powershell
-$env:SHOPIFY_SHOP_DOMAIN='shiftautoandoffroad.myshopify.com'
-$env:SHOPIFY_ACCESS_TOKEN='shpat_xxx'
-$env:SHOPIFY_API_VERSION='2025-10'
-$env:DRY_RUN='true'
-$env:MAX_ITEMS='25'
-npm run shopify_sync
+npm run pipeline:real
 ```
 
-This checks what would be created/updated without changing Shopify.
+## VS Code + OpenAI Workflow (Low Manual Work)
 
-### Step C: Real sync
+If your buddy uses OpenAI/Codex in VS Code, they can paste this:
 
-```powershell
-$env:SHOPIFY_SHOP_DOMAIN='shiftautoandoffroad.myshopify.com'
-$env:SHOPIFY_ACCESS_TOKEN='shpat_xxx'
-$env:SHOPIFY_API_VERSION='2025-10'
-$env:DRY_RUN='false'
-$env:SYNC_CONCURRENCY='4'
-# Optional for inventory quantity updates:
-# $env:SHOPIFY_LOCATION_ID='123456789'
-npm run shopify_sync
+```text
+Open this project and run the full dry-run sync workflow:
+1) Verify .env has SHOPIFY_SHOP_DOMAIN and SHOPIFY_ACCESS_TOKEN
+2) Run npm install if needed
+3) Run npm run pipeline:dry
+4) Show me summary from output/shopify_sync_results.json and output/shopify_sync_failures.json
 ```
 
-## Where Results Are Saved
+Then for real upload:
+
+```text
+Run the real Shopify sync now using current .env settings.
+Use npm run pipeline:real and summarize created/updated/failed counts.
+```
+
+## Commands
+
+- `npm run scrape` -> scrape only
+- `npm run sync:dry` -> Shopify dry run only
+- `npm run sync:real` -> Shopify real sync only
+- `npm run pipeline:dry` -> scrape + dry run sync
+- `npm run pipeline:real` -> scrape + real sync
+
+## What Appears In Shopify
+
+Each product is synced as draft and includes:
+- title, vendor, SKU, price, image, description
+- vehicle fitment section in description
+- fitment metafields:
+  - `fitment.vehicle_compatibility`
+  - `fitment.vehicle_compatibility_structured`
+
+## Output Files
 
 In `output/`:
-- `parts.json`: scraped part data
-- `parts.csv`: spreadsheet-style part data
-- `failures.json`: pages that failed scraping
-- `shopify_sync_results.json`: what was created/updated
-- `shopify_sync_failures.json`: Shopify sync errors
+- `parts.json`
+- `parts.csv`
+- `failures.json`
+- `shopify_sync_results.json`
+- `shopify_sync_failures.json`
 
-## What Shopify Products Will Look Like
+## Common Issues
 
-Each product includes:
-- Title, vendor, type, price, SKU, image
-- Description
-- `Vehicle Fitment` section in the description
-- Fitment metafields:
-  - `fitment.vehicle_compatibility` (text)
-  - `fitment.vehicle_compatibility_structured` (JSON)
-
-Products are created as `draft` for safety.
-
-## If Something Goes Wrong
-
-- `Missing SHOPIFY_SHOP_DOMAIN`: set the env var and use `*.myshopify.com`.
-- `Missing SHOPIFY_ACCESS_TOKEN`: set your `shpat_...` token.
-- `401/403` errors: token/scopes are wrong.
-- `429` errors: Shopify rate-limiting; retry with lower `SYNC_CONCURRENCY`.
-
-## Quick Command Summary
-
-```powershell
-npm install
-npm run scrape
-$env:SHOPIFY_SHOP_DOMAIN='shiftautoandoffroad.myshopify.com'
-$env:SHOPIFY_ACCESS_TOKEN='shpat_xxx'
-$env:SHOPIFY_API_VERSION='2025-10'
-$env:DRY_RUN='true'
-npm run shopify_sync
-```
+- Wrong domain: use `*.myshopify.com`, not public site URL
+- `401/403`: token or scopes are wrong
+- `429`: reduce `SYNC_CONCURRENCY`
