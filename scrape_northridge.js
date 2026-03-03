@@ -129,6 +129,33 @@ function extractFitmentFromDom($) {
   return dedupeNonEmpty(candidates).filter((line) => line.length >= 4).slice(0, 60);
 }
 
+function extractThisPartFitsVehicles($) {
+  const yearVehiclePattern = /\b(19|20)\d{2}\s+[A-Za-z]/;
+  const headingNodes = $("h1, h2, h3, h4, h5, h6")
+    .toArray()
+    .filter((node) => /this\s+part\s+fits/i.test(cleanText($(node).text())));
+
+  const lines = [];
+
+  for (const heading of headingNodes) {
+    const section = $(heading).closest("section, article, .section, .product-details, .product-fitment, .fitment");
+    const scope = section.length > 0 ? section : $(heading).parent();
+    const textBlocks = scope
+      .find("li, p, td, th, span, div")
+      .toArray()
+      .map((el) => cleanText($(el).text()))
+      .filter(Boolean);
+
+    for (const line of textBlocks) {
+      if (yearVehiclePattern.test(line)) {
+        lines.push(line);
+      }
+    }
+  }
+
+  return dedupeNonEmpty(lines).slice(0, 300);
+}
+
 function extractFitmentFromKeywords(metaKeywords) {
   const values = cleanText(metaKeywords)
     .split(",")
@@ -149,9 +176,14 @@ function parsePartPage(url, html) {
   const $ = cheerio.load(html);
   const jsonLd = parseJsonLdProduct($);
   const metaKeywords = getMeta($, "keywords", "name");
+  const sectionFitmentVehicles = extractThisPartFitsVehicles($);
   const domFitment = extractFitmentFromDom($);
   const keywordFitment = extractFitmentFromKeywords(metaKeywords);
-  const fitmentVehicles = dedupeNonEmpty([...domFitment, ...keywordFitment]).slice(0, 80);
+  const fitmentVehicles = dedupeNonEmpty([
+    ...sectionFitmentVehicles,
+    ...domFitment,
+    ...keywordFitment,
+  ]).slice(0, 300);
 
   const row = {
     url,
@@ -177,6 +209,7 @@ function parsePartPage(url, html) {
     gtin: cleanText(jsonLd?.gtin),
     mpn: cleanText(jsonLd?.mpn),
     jsonld_description: cleanText(jsonLd?.description),
+    fitment_this_part_fits: sectionFitmentVehicles.join(" | "),
     fitment_text: domFitment.join(" | "),
     fitment_vehicles: fitmentVehicles.join(" | "),
     scraped_at_utc: new Date().toISOString(),

@@ -73,13 +73,16 @@ function dedupeNonEmpty(values) {
 
 function parseFitmentVehicles(row) {
   const merged = [];
+  const sectionFits = clean(row.fitment_this_part_fits)
+    .split("|")
+    .map((v) => clean(v));
   const vehicles = clean(row.fitment_vehicles)
     .split("|")
     .map((v) => clean(v));
   const textParts = clean(row.fitment_text)
     .split("|")
     .map((v) => clean(v));
-  merged.push(...vehicles, ...textParts);
+  merged.push(...sectionFits, ...vehicles, ...textParts);
   return dedupeNonEmpty(merged).slice(0, 100);
 }
 
