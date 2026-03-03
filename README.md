@@ -2,6 +2,8 @@
 
 Scrapes all part pages from `https://www.northridge4x4.com/` by reading the sitemap and extracting URLs under `/part/`.
 
+For a full app spec and future update guide, see [APP_REFERENCE.md](./APP_REFERENCE.md).
+
 ## Instructions
 
 ### 1) Install dependencies
