@@ -72,6 +72,7 @@ function dedupeNonEmpty(values) {
 }
 
 function parseFitmentVehicles(row) {
+  const fitmentSource = clean(row.fitment_source);
   const merged = [];
   const sectionFits = clean(row.fitment_this_part_fits)
     .split("|")
@@ -82,8 +83,33 @@ function parseFitmentVehicles(row) {
   const textParts = clean(row.fitment_text)
     .split("|")
     .map((v) => clean(v));
-  merged.push(...sectionFits, ...vehicles, ...textParts);
+  if (fitmentSource === "this_part_fits" && sectionFits.length > 0) {
+    merged.push(...sectionFits);
+  } else {
+    merged.push(...sectionFits, ...vehicles, ...textParts);
+  }
   return dedupeNonEmpty(merged).slice(0, 100);
+}
+
+function parseStructuredFitment(row) {
+  const raw = clean(row.fitment_structured_json);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((item) => ({
+        raw: clean(item?.raw),
+        year: clean(item?.year),
+        make: clean(item?.make),
+        model: clean(item?.model),
+        trim: clean(item?.trim),
+      }))
+      .filter((item) => item.raw)
+      .slice(0, 300);
+  } catch {
+    return [];
+  }
 }
 
 function escapeHtml(value) {
@@ -120,6 +146,7 @@ function mapToShopify(row) {
   const title = clean(row.name) || clean(row.title);
   const vendor = clean(row.brand) || "Unknown";
   const fitmentVehicles = parseFitmentVehicles(row);
+  const structuredFitment = parseStructuredFitment(row);
   const baseBody = clean(row.jsonld_description) || clean(row.meta_description) || clean(row.og_description);
   const bodyHtml = buildBodyHtml(baseBody, fitmentVehicles);
   const productType = clean(row.category) || clean(row.retailer_category) || "Parts";
@@ -146,6 +173,15 @@ function mapToShopify(row) {
       key: "vehicle_compatibility",
       type: "multi_line_text_field",
       value: fitmentVehicles.join("\n").slice(0, 65000),
+    });
+  }
+
+  if (structuredFitment.length > 0) {
+    metafields.push({
+      namespace: "fitment",
+      key: "vehicle_compatibility_structured",
+      type: "json",
+      value: JSON.stringify(structuredFitment),
     });
   }
 

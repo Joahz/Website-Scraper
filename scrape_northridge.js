@@ -172,18 +172,57 @@ function extractFitmentFromKeywords(metaKeywords) {
   return dedupeNonEmpty(matched).slice(0, 40);
 }
 
+function parseVehicleFitmentLine(line) {
+  const value = cleanText(line);
+  if (!value) return null;
+
+  const match = value.match(/^(19|20)\d{2}\s+(.+)$/);
+  if (!match) {
+    return {
+      raw: value,
+      year: "",
+      make: "",
+      model: "",
+      trim: "",
+    };
+  }
+
+  const year = value.slice(0, 4);
+  const rest = cleanText(value.slice(4));
+  const parts = rest.split(" ").filter(Boolean);
+  const make = parts[0] || "";
+  const model = parts[1] || "";
+  const trim = cleanText(parts.slice(2).join(" "));
+
+  return {
+    raw: value,
+    year,
+    make,
+    model,
+    trim,
+  };
+}
+
 function parsePartPage(url, html) {
   const $ = cheerio.load(html);
   const jsonLd = parseJsonLdProduct($);
   const metaKeywords = getMeta($, "keywords", "name");
   const sectionFitmentVehicles = extractThisPartFitsVehicles($);
-  const domFitment = extractFitmentFromDom($);
-  const keywordFitment = extractFitmentFromKeywords(metaKeywords);
-  const fitmentVehicles = dedupeNonEmpty([
-    ...sectionFitmentVehicles,
-    ...domFitment,
-    ...keywordFitment,
-  ]).slice(0, 300);
+  const hasSectionFitment = sectionFitmentVehicles.length > 0;
+  const domFitment = hasSectionFitment ? [] : extractFitmentFromDom($);
+  const keywordFitment = hasSectionFitment ? [] : extractFitmentFromKeywords(metaKeywords);
+  const fitmentVehicles = dedupeNonEmpty(
+    hasSectionFitment
+      ? [...sectionFitmentVehicles]
+      : [...sectionFitmentVehicles, ...domFitment, ...keywordFitment]
+  ).slice(0, 300);
+  const fitmentStructured = fitmentVehicles
+    .map(parseVehicleFitmentLine)
+    .filter(Boolean)
+    .slice(0, 300);
+  const fitmentMakes = dedupeNonEmpty(
+    fitmentStructured.map((v) => v.make).filter(Boolean)
+  ).slice(0, 20);
 
   const row = {
     url,
@@ -209,9 +248,12 @@ function parsePartPage(url, html) {
     gtin: cleanText(jsonLd?.gtin),
     mpn: cleanText(jsonLd?.mpn),
     jsonld_description: cleanText(jsonLd?.description),
+    fitment_source: hasSectionFitment ? "this_part_fits" : "fallback",
     fitment_this_part_fits: sectionFitmentVehicles.join(" | "),
     fitment_text: domFitment.join(" | "),
     fitment_vehicles: fitmentVehicles.join(" | "),
+    fitment_structured_json: JSON.stringify(fitmentStructured),
+    fitment_makes: fitmentMakes.join(" | "),
     scraped_at_utc: new Date().toISOString(),
   };
 

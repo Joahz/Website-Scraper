@@ -17,7 +17,9 @@ Primary use case: build and maintain a parts catalog in Shopify from scraped sou
 - Filters URLs to `/part/` pages
 - Fetches and parses each page
 - Extracts product metadata (title, brand, SKU/MPN, price, availability, image, descriptions, weight, etc.)
-- Extracts vehicle fitment signals from likely fitment/compatibility page sections and vehicle-related keywords
+- Uses `THIS PART FITS` as the primary/strict fitment source
+- Uses fallback selectors/keywords only when `THIS PART FITS` is missing
+- Produces structured fitment rows (`year`, `make`, `model`, `trim`) plus raw fitment strings
 - Writes outputs:
   - `output/parts.json`
   - `output/parts.csv`
@@ -32,6 +34,7 @@ Primary use case: build and maintain a parts catalog in Shopify from scraped sou
 - Adds vehicle compatibility to product content:
   - `Vehicle Fitment` section in product description
   - `fitment.vehicle_compatibility` metafield (multi-line text)
+  - `fitment.vehicle_compatibility_structured` metafield (JSON)
   - `fitment-available` tag when fitment exists
 - Upserts by SKU:
   - SKU exists -> update
