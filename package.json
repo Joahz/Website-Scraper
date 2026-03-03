@@ -1,7 +1,7 @@
 {
-    "name":  "website-scraper",
+    "name":  "shift-auto-offroad-shopify-sync",
     "version":  "1.0.0",
-    "description":  "",
+    "description":  "Shift Auto & Offroad Shopify sync tool for scraping parts and uploading to Shopify",
     "main":  "scrape_northridge.js",
     "scripts":  {
                     "scrape":  "node scrape_northridge.js",

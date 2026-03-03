@@ -1,4 +1,4 @@
-# App Reference
+# Shift Auto & Offroad Shopify Sync - App Reference
 
 ## Purpose
 

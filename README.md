@@ -1,4 +1,4 @@
-# Parts To Shopify (Beginner Guide)
+# Shift Auto & Offroad Shopify Sync
 
 This project does 2 things:
 
