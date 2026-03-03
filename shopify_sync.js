@@ -57,6 +57,51 @@ function parsePrice(value) {
   return n.toFixed(2);
 }
 
+function dedupeNonEmpty(values) {
+  const seen = new Set();
+  const out = [];
+  for (const value of values) {
+    const normalized = clean(value);
+    if (!normalized) continue;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(normalized);
+  }
+  return out;
+}
+
+function parseFitmentVehicles(row) {
+  const merged = [];
+  const vehicles = clean(row.fitment_vehicles)
+    .split("|")
+    .map((v) => clean(v));
+  const textParts = clean(row.fitment_text)
+    .split("|")
+    .map((v) => clean(v));
+  merged.push(...vehicles, ...textParts);
+  return dedupeNonEmpty(merged).slice(0, 100);
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function buildBodyHtml(baseBody, fitmentVehicles) {
+  const safeBase = clean(baseBody);
+  if (fitmentVehicles.length === 0) return safeBase;
+  const items = fitmentVehicles
+    .slice(0, 40)
+    .map((vehicle) => `<li>${escapeHtml(vehicle)}</li>`)
+    .join("");
+  const fitmentSection = `<h3>Vehicle Fitment</h3><ul>${items}</ul>`;
+  return safeBase ? `${safeBase}<br/><br/>${fitmentSection}` : fitmentSection;
+}
+
 function isLikelyProductRow(row) {
   const url = clean(row.url).toLowerCase();
   const hasPrice = parsePrice(row.price) !== null;
@@ -71,7 +116,9 @@ function mapToShopify(row) {
   const sku = clean(row.sku) || clean(row.mfr_part_no);
   const title = clean(row.name) || clean(row.title);
   const vendor = clean(row.brand) || "Unknown";
-  const bodyHtml = clean(row.jsonld_description) || clean(row.meta_description) || clean(row.og_description);
+  const fitmentVehicles = parseFitmentVehicles(row);
+  const baseBody = clean(row.jsonld_description) || clean(row.meta_description) || clean(row.og_description);
+  const bodyHtml = buildBodyHtml(baseBody, fitmentVehicles);
   const productType = clean(row.category) || clean(row.retailer_category) || "Parts";
   const price = parsePrice(row.price) || "0.00";
   const handle = toHandle(title, sku, row.mfr_part_no);
@@ -80,9 +127,24 @@ function mapToShopify(row) {
     clean(row.retailer_category),
     clean(row.condition),
     clean(row.availability),
+    fitmentVehicles.length > 0 ? "fitment-available" : "",
   ]
     .filter(Boolean)
     .join(", ");
+
+  const metafields = [
+    { namespace: "source", key: "source_url", type: "single_line_text_field", value: clean(row.url) },
+    { namespace: "source", key: "mfr_part_no", type: "single_line_text_field", value: clean(row.mfr_part_no) || sku },
+  ];
+
+  if (fitmentVehicles.length > 0) {
+    metafields.push({
+      namespace: "fitment",
+      key: "vehicle_compatibility",
+      type: "multi_line_text_field",
+      value: fitmentVehicles.join("\n").slice(0, 65000),
+    });
+  }
 
   return {
     sku,
@@ -107,10 +169,7 @@ function mapToShopify(row) {
           barcode: clean(row.gtin) || undefined,
         },
       ],
-      metafields: [
-        { namespace: "source", key: "source_url", type: "single_line_text_field", value: clean(row.url) },
-        { namespace: "source", key: "mfr_part_no", type: "single_line_text_field", value: clean(row.mfr_part_no) || sku },
-      ],
+      metafields,
     },
   };
 }

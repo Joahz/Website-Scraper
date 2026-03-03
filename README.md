@@ -67,5 +67,6 @@ Files are written to `output/`:
 - Script filters out non-product rows (for example `/reviews` URLs).
 - Upsert behavior is by SKU: existing SKU updates, missing SKU creates a draft product.
 - Products are synced as `draft` by default for safety.
+- Vehicle fitment is captured from page sections/keywords and added to Shopify description + fitment metafield.
 - Uses `robots.txt`-allowed sitemap URLs.
 - Full scrapes may take significant time.

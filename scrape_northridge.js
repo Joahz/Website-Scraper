@@ -84,9 +84,74 @@ function getMeta($, key, attr = "property") {
   return cleanText(value);
 }
 
+function dedupeNonEmpty(values) {
+  const seen = new Set();
+  const out = [];
+  for (const value of values) {
+    const normalized = cleanText(value);
+    if (!normalized) continue;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(normalized);
+  }
+  return out;
+}
+
+function extractFitmentFromDom($) {
+  const selectors = [
+    '[id*="fitment"]',
+    '[class*="fitment"]',
+    '[id*="compatib"]',
+    '[class*="compatib"]',
+    '[id*="vehicle"]',
+    '[class*="vehicle"]',
+    '[id*="application"]',
+    '[class*="application"]',
+  ];
+
+  const candidates = [];
+  for (const selector of selectors) {
+    $(selector).each((_, el) => {
+      const lines = $(el)
+        .find("li, tr, p, div")
+        .toArray()
+        .map((node) => cleanText($(node).text()))
+        .filter(Boolean);
+      if (lines.length > 0) {
+        candidates.push(...lines);
+      } else {
+        candidates.push(cleanText($(el).text()));
+      }
+    });
+  }
+
+  return dedupeNonEmpty(candidates).filter((line) => line.length >= 4).slice(0, 60);
+}
+
+function extractFitmentFromKeywords(metaKeywords) {
+  const values = cleanText(metaKeywords)
+    .split(",")
+    .map((v) => cleanText(v))
+    .filter(Boolean);
+
+  if (values.length === 0) return [];
+
+  const makePattern =
+    /\b(jeep|ford|chevrolet|chevy|gmc|ram|dodge|toyota|lexus|nissan|infiniti|honda|acura|subaru|mazda|mitsubishi|hyundai|kia|bmw|mercedes|audi|vw|volkswagen|land rover|range rover|cadillac)\b/i;
+  const yearPattern = /\b(19|20)\d{2}(\s*-\s*(19|20)\d{2})?\b/;
+
+  const matched = values.filter((v) => makePattern.test(v) || yearPattern.test(v));
+  return dedupeNonEmpty(matched).slice(0, 40);
+}
+
 function parsePartPage(url, html) {
   const $ = cheerio.load(html);
   const jsonLd = parseJsonLdProduct($);
+  const metaKeywords = getMeta($, "keywords", "name");
+  const domFitment = extractFitmentFromDom($);
+  const keywordFitment = extractFitmentFromKeywords(metaKeywords);
+  const fitmentVehicles = dedupeNonEmpty([...domFitment, ...keywordFitment]).slice(0, 80);
 
   const row = {
     url,
@@ -106,12 +171,14 @@ function parsePartPage(url, html) {
     shipping_weight_units: getMeta($, "product:shipping_weight:units", "property"),
     og_description: getMeta($, "og:description", "property"),
     meta_description: getMeta($, "description", "name"),
-    meta_keywords: getMeta($, "keywords", "name"),
+    meta_keywords: metaKeywords,
     image: getMeta($, "og:image", "property") || cleanText(jsonLd?.image),
     sku: cleanText(jsonLd?.sku),
     gtin: cleanText(jsonLd?.gtin),
     mpn: cleanText(jsonLd?.mpn),
     jsonld_description: cleanText(jsonLd?.description),
+    fitment_text: domFitment.join(" | "),
+    fitment_vehicles: fitmentVehicles.join(" | "),
     scraped_at_utc: new Date().toISOString(),
   };
 
